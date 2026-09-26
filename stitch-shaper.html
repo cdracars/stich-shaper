@@ -504,6 +504,55 @@
       : 'Each decrease uses 2 stitches — not enough stitches for that many.';
   }
 
+  // Splits the plain stitches into whole-stitch gaps: some of size `small`,
+  // the rest one bigger, so the round always adds up exactly.
+  function splitGaps(regular, n) {
+    var small = Math.floor(regular / n);
+    var nLarge = regular % n;
+    return { small: small, nSmall: n - nLarge, nLarge: nLarge };
+  }
+
+  // Lays the gaps out in working order with the bigger ones spread evenly
+  // around the round, then writes the shortest repeat that covers it,
+  // e.g. [4, 5, 5, 4, 5, 5] → "(4 sc, inc, [5 sc, inc] × 2) × 2".
+  function formatPattern(split, word) {
+    var n = split.nSmall + split.nLarge;
+    var gaps = [];
+    for (var i = 0; i < n; i++) {
+      var bigs = Math.floor((i + 1) * split.nLarge / n) - Math.floor(i * split.nLarge / n);
+      gaps.push(split.small + bigs);
+    }
+
+    var period = n;
+    for (var p = 1; p < n; p++) {
+      if (n % p !== 0) continue;
+      var repeats = true;
+      for (var j = p; j < n && repeats; j++) repeats = gaps[j] === gaps[j - p];
+      if (repeats) { period = p; break; }
+    }
+
+    function group(gap, reps) {
+      return reps === 1
+        ? gap + ' sc, ' + word
+        : '[' + gap + ' sc, ' + word + '] × ' + reps;
+    }
+    var runs = [];
+    for (var k = 0; k < period; k++) {
+      var last = runs[runs.length - 1];
+      if (last && last.gap === gaps[k]) last.reps++;
+      else runs.push({ gap: gaps[k], reps: 1 });
+    }
+
+    var times = n / period;
+    if (runs.length === 1) return group(runs[0].gap, runs[0].reps * times);
+    var unit = runs.map(function (r) { return group(r.gap, r.reps); }).join(', ');
+    return times === 1 ? unit : '(' + unit + ') × ' + times;
+  }
+
+  function gapRange(split) {
+    return split.nLarge > 0 ? split.small + '–' + (split.small + 1) : String(split.small);
+  }
+
   function wireStepper() {
     document.querySelectorAll('.stepper button[data-target]').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -568,20 +617,20 @@
     warnEl.style.display = 'none';
 
     var regular = current - n * per;
-    var gap = regular / n;
+    var split = splitGaps(regular, n);
     var newTotal = dir === 'inc' ? current + n : current - n;
     var word = dir === 'inc' ? 'inc' : 'dec';
-    var gapDisplay = Number.isInteger(gap) ? gap : gap.toFixed(2);
 
-    document.getElementById('count-pattern').textContent =
-      '[' + gapDisplay + ' sc, ' + word + '] × ' + n;
-    document.getElementById('count-note').textContent = 'repeat around';
+    document.getElementById('count-pattern').textContent = formatPattern(split, word);
+    document.getElementById('count-note').textContent =
+      split.nLarge > 0 ? 'work in order, once around' : 'repeat around';
     document.getElementById('count-newtotal').textContent = newTotal;
     document.getElementById('count-regular').textContent = regular;
 
-    if (!Number.isInteger(gap)) {
+    if (split.nLarge > 0) {
       warnEl.style.display = 'block';
-      warnEl.textContent = "Doesn't divide evenly — Random mode may look better.";
+      warnEl.textContent = "Doesn't divide evenly, so gaps are " + gapRange(split) +
+        ' sc. Random mode spreads them more organically.';
     }
   }
 
@@ -598,8 +647,15 @@
     var warnEl = document.getElementById('gap-warn');
 
     var per = stitchesPerChange(dir);
+    // Try the whole counts either side of the exact answer and keep the one
+    // whose average gap lands closest to what was asked for.
     var nExact = current / (gapWanted + per);
-    var n = Math.round(nExact);
+    var n = 0, bestError = Infinity;
+    [Math.floor(nExact), Math.ceil(nExact)].forEach(function (candidate) {
+      if (candidate < 1 || candidate * per > current) return;
+      var error = Math.abs((current - candidate * per) / candidate - gapWanted);
+      if (error < bestError) { n = candidate; bestError = error; }
+    });
 
     if (n < 1 || n * per > current) {
       warnEl.style.display = 'block';
@@ -613,20 +669,19 @@
     warnEl.style.display = 'none';
 
     var regular = current - n * per;
-    var actualGap = regular / n;
+    var split = splitGaps(regular, n);
     var newTotal = dir === 'inc' ? current + n : current - n;
     var word = dir === 'inc' ? 'inc' : 'dec';
-    var gapDisplay = Number.isInteger(actualGap) ? actualGap : actualGap.toFixed(2);
 
-    document.getElementById('gap-pattern').textContent =
-      '[' + gapDisplay + ' sc, ' + word + '] × ' + n;
-    document.getElementById('gap-note').textContent = 'repeat around';
+    document.getElementById('gap-pattern').textContent = formatPattern(split, word);
+    document.getElementById('gap-note').textContent =
+      split.nLarge > 0 ? 'work in order, once around' : 'repeat around';
     document.getElementById('gap-count').textContent = n;
     document.getElementById('gap-newtotal').textContent = newTotal;
 
-    if (Math.abs(actualGap - gapWanted) > 0.01) {
+    if (split.nLarge > 0 || split.small !== gapWanted) {
       warnEl.style.display = 'block';
-      warnEl.textContent = 'Closest whole-number fit — actual gap is ' + gapDisplay + ', not exactly ' + gapWanted + '.';
+      warnEl.textContent = 'Closest fit — gaps of ' + gapRange(split) + ' sc, not exactly ' + gapWanted + '.';
     }
   }
 

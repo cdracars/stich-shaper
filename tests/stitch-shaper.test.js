@@ -159,3 +159,85 @@ test('Random decrease needing more than the stitches you have shows no chunks', 
   assert.equal(await text('rand-pattern'), '—');
   assert.deepEqual(await randomSegments(), []);
 });
+
+// ---------- uneven splits must stay whole stitches ----------
+
+// Expands a pattern like "(4 sc, inc, [5 sc, inc] × 2) × 2" into the list of
+// sc gaps in the order they're worked, e.g. [4, 5, 5, 4, 5, 5].
+function expandGaps(pattern) {
+  const repeat = (inner, k) => Array(parseInt(k, 10)).fill(inner).join(', ');
+  const flat = pattern
+    .replace(/\(([^()]*)\) × (\d+)/g, (_, inner, k) =>
+      repeat(inner.replace(/\[([^\]]*)\] × (\d+)/g, (_, i, r) => repeat(i, r)), k))
+    .replace(/\[([^\]]*)\] × (\d+)/g, (_, inner, k) => repeat(inner, k));
+  const re = /(\d+) sc, (?:inc|dec)/g;
+  const leftover = flat.replace(re, '').replace(/[,\s]/g, '');
+  assert.equal(leftover, '', `unparsed text in "${pattern}"`);
+  return [...flat.matchAll(re)].map((m) => parseInt(m[1], 10));
+}
+
+// Every gap is one of two neighbouring sizes, and the bigger ones are spread
+// around the round: after any i changes, the number of big gaps so far is
+// within 1 of an even share.
+function assertEvenlySpread(gaps, pattern) {
+  const small = Math.min(...gaps);
+  const bigs = gaps.filter((g) => g !== small).length;
+  gaps.forEach((g) => assert.ok(g === small || g === small + 1, `"${pattern}"`));
+  let seen = 0;
+  gaps.forEach((g, i) => {
+    if (g !== small) seen++;
+    const share = ((i + 1) * bigs) / gaps.length;
+    assert.ok(Math.abs(seen - share) <= 1, `big gaps bunched up in "${pattern}"`);
+  });
+}
+
+test('By Count uneven increase: 31 st, 6 inc → whole-stitch gaps', async () => {
+  await setInput('count-current', 31);
+  await setInput('count-n', 6);
+  await setDir('count-dir', 'inc');
+  assert.equal(await text('count-pattern'), '[4 sc, inc] × 5, 5 sc, inc');
+});
+
+test('By Count patterns work exactly the current stitches, evenly spread', async () => {
+  const cases = [[7, 1], [20, 3], [31, 6], [45, 7], [34, 6], [250, 100], [100, 30]];
+  for (const [dir, per] of [['inc', 1], ['dec', 2]]) {
+    await setDir('count-dir', dir);
+    for (const [current, n] of cases) {
+      if (n * per > current) continue;
+      await setInput('count-current', current);
+      await setInput('count-n', n);
+      const pattern = await text('count-pattern');
+      assert.ok(!pattern.includes('.'), `decimal in "${pattern}"`);
+      const gaps = expandGaps(pattern);
+      assert.equal(gaps.length, n, `"${pattern}" should have ${n} ${dir}s`);
+      const worked = gaps.reduce((a, b) => a + b, 0) + n * per;
+      assert.equal(worked, current, `"${pattern}" for ${current} st, ${n} ${dir}`);
+      assertEvenlySpread(gaps, pattern);
+    }
+  }
+});
+
+test('By Count alternates gap sizes: 250 st, 100 inc', async () => {
+  await setInput('count-current', 250);
+  await setInput('count-n', 100);
+  await setDir('count-dir', 'inc');
+  assert.equal(await text('count-pattern'), '(1 sc, inc, 2 sc, inc) × 50');
+});
+
+test('By Gap uneven: 31 st, gap 4 → whole-stitch gaps', async () => {
+  await openTab('panel-gap');
+  await setInput('gap-current', 31);
+  await setInput('gap-gap', 4);
+  await setDir('gap-dir', 'inc');
+  assert.equal(await text('gap-count'), '6');
+  assert.equal(await text('gap-pattern'), '[4 sc, inc] × 5, 5 sc, inc');
+});
+
+test('By Gap picks the count whose gap is closest: 10 st, gap 6 → 2 inc', async () => {
+  await openTab('panel-gap');
+  await setInput('gap-current', 10);
+  await setInput('gap-gap', 6);
+  await setDir('gap-dir', 'inc');
+  assert.equal(await text('gap-count'), '2');
+  assert.equal(await text('gap-pattern'), '[4 sc, inc] × 2');
+});

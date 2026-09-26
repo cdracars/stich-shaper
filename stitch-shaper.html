@@ -377,7 +377,7 @@
     </div>
 
     <div class="result">
-      <div class="pattern" id="count-pattern">[3 sc, inc] × 6</div>
+      <div class="pattern" id="count-pattern">[4 sc, inc] × 6</div>
       <div class="note" id="count-note">repeat around</div>
       <div class="stat-row">
         <div class="stat"><div class="num" id="count-newtotal">36</div><div class="lbl">new total</div></div>
@@ -412,14 +412,14 @@
         <label for="gap-gap">Desired gap</label>
         <div class="stepper">
           <button data-step="-1" data-target="gap-gap">−</button>
-          <input id="gap-gap" type="number" inputmode="numeric" value="3" min="0">
+          <input id="gap-gap" type="number" inputmode="numeric" value="4" min="0">
           <button data-step="1" data-target="gap-gap">+</button>
         </div>
       </div>
     </div>
 
     <div class="result">
-      <div class="pattern" id="gap-pattern">[3 sc, inc] × 6</div>
+      <div class="pattern" id="gap-pattern">[4 sc, inc] × 6</div>
       <div class="note" id="gap-note">repeat around</div>
       <div class="stat-row">
         <div class="stat"><div class="num" id="gap-count">6</div><div class="lbl"># of changes</div></div>
@@ -493,7 +493,18 @@
     return Math.max(min, v);
   }
 
-  function wireStepper(rootId) {
+  // An inc works into 1 stitch; a dec (sc2tog) works into 2.
+  function stitchesPerChange(dir) {
+    return dir === 'inc' ? 1 : 2;
+  }
+
+  function tooManyMessage(dir) {
+    return dir === 'inc'
+      ? "Can't have more increases than stitches."
+      : 'Each decrease uses 2 stitches — not enough stitches for that many.';
+  }
+
+  function wireStepper() {
     document.querySelectorAll('.stepper button[data-target]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var input = document.getElementById(btn.dataset.target);
@@ -519,6 +530,8 @@
     return state;
   }
 
+  wireStepper();
+
   // ---------- tab switching ----------
   document.querySelectorAll('nav.tabbar .tab').forEach(function (tab) {
     tab.addEventListener('click', function () {
@@ -541,9 +554,11 @@
     var dir = countDir.val;
     var warnEl = document.getElementById('count-warn');
 
-    if (n >= current) {
+    var per = stitchesPerChange(dir);
+
+    if (n * per > current) {
       warnEl.style.display = 'block';
-      warnEl.textContent = 'Number of changes must be less than current stitches.';
+      warnEl.textContent = tooManyMessage(dir);
       document.getElementById('count-pattern').textContent = '—';
       document.getElementById('count-note').textContent = '';
       document.getElementById('count-newtotal').textContent = '—';
@@ -552,8 +567,8 @@
     }
     warnEl.style.display = 'none';
 
-    var regular = current - n;
-    var gap = regular / n - 1;
+    var regular = current - n * per;
+    var gap = regular / n;
     var newTotal = dir === 'inc' ? current + n : current - n;
     var word = dir === 'inc' ? 'inc' : 'dec';
     var gapDisplay = Number.isInteger(gap) ? gap : gap.toFixed(2);
@@ -582,10 +597,11 @@
     var dir = gapDir.val;
     var warnEl = document.getElementById('gap-warn');
 
-    var nExact = current / (gapWanted + 2);
+    var per = stitchesPerChange(dir);
+    var nExact = current / (gapWanted + per);
     var n = Math.round(nExact);
 
-    if (n < 1 || n >= current) {
+    if (n < 1 || n * per > current) {
       warnEl.style.display = 'block';
       warnEl.textContent = 'That gap is too wide (or too tight) for this stitch count — try a different number.';
       document.getElementById('gap-pattern').textContent = '—';
@@ -596,8 +612,8 @@
     }
     warnEl.style.display = 'none';
 
-    var regular = current - n;
-    var actualGap = regular / n - 1;
+    var regular = current - n * per;
+    var actualGap = regular / n;
     var newTotal = dir === 'inc' ? current + n : current - n;
     var word = dir === 'inc' ? 'inc' : 'dec';
     var gapDisplay = Number.isInteger(actualGap) ? actualGap : actualGap.toFixed(2);
@@ -639,15 +655,14 @@
     var current = clampInt(document.getElementById('rand-current').value, 1);
     var n = clampInt(document.getElementById('rand-n').value, 1);
     var dir = randDir.val;
-    var warnEl = document.getElementById('count-warn'); // reuse pattern below instead
-
-    var regular = current - n;
+    var per = stitchesPerChange(dir);
+    var regular = current - n * per;
     var word = dir === 'inc' ? 'increase' : 'decrease';
     var shortWord = dir === 'inc' ? 'inc' : 'dec';
 
-    if (n >= current) {
+    if (n * per > current) {
       document.getElementById('rand-pattern').textContent = '—';
-      document.getElementById('rand-note').textContent = 'Number of changes must be less than current stitches.';
+      document.getElementById('rand-note').textContent = tooManyMessage(dir);
       document.getElementById('rand-segments').innerHTML = '';
       document.getElementById('rand-newtotal').textContent = '—';
       document.getElementById('rand-check').textContent = '—';

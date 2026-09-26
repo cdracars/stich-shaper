@@ -159,3 +159,64 @@ test('Random decrease needing more than the stitches you have shows no chunks', 
   assert.equal(await text('rand-pattern'), '—');
   assert.deepEqual(await randomSegments(), []);
 });
+
+// ---------- uneven splits must stay whole stitches ----------
+
+// Parses "[4 sc, inc] × 5, 5 sc, inc" and returns the stitches it works into.
+function stitchesWorked(pattern, perChange) {
+  let total = 0, changes = 0;
+  const re = /\[(\d+) sc, (?:inc|dec)\] × (\d+)|(\d+) sc, (?:inc|dec)/g;
+  let m;
+  while ((m = re.exec(pattern))) {
+    const gap = parseInt(m[1] ?? m[3], 10);
+    const reps = m[2] ? parseInt(m[2], 10) : 1;
+    total += reps * (gap + perChange);
+    changes += reps;
+  }
+  const leftover = pattern.replace(re, '').replace(/[,\s]/g, '');
+  assert.equal(leftover, '', `unparsed text in "${pattern}"`);
+  return { total, changes };
+}
+
+test('By Count uneven increase: 31 st, 6 inc → whole-stitch gaps', async () => {
+  await setInput('count-current', 31);
+  await setInput('count-n', 6);
+  await setDir('count-dir', 'inc');
+  assert.equal(await text('count-pattern'), '[4 sc, inc] × 5, 5 sc, inc');
+});
+
+test('By Count patterns always work exactly the current stitches', async () => {
+  for (const [dir, per] of [['inc', 1], ['dec', 2]]) {
+    await setDir('count-dir', dir);
+    for (const current of [7, 20, 31, 45]) {
+      for (const n of [1, 3, 6, 7]) {
+        if (n * per > current) continue;
+        await setInput('count-current', current);
+        await setInput('count-n', n);
+        const pattern = await text('count-pattern');
+        assert.ok(!pattern.includes('.'), `decimal in "${pattern}"`);
+        const { total, changes } = stitchesWorked(pattern, per);
+        assert.equal(total, current, `"${pattern}" for ${current} st, ${n} ${dir}`);
+        assert.equal(changes, n);
+      }
+    }
+  }
+});
+
+test('By Gap uneven: 31 st, gap 4 → whole-stitch gaps', async () => {
+  await openTab('panel-gap');
+  await setInput('gap-current', 31);
+  await setInput('gap-gap', 4);
+  await setDir('gap-dir', 'inc');
+  assert.equal(await text('gap-count'), '6');
+  assert.equal(await text('gap-pattern'), '[4 sc, inc] × 5, 5 sc, inc');
+});
+
+test('By Gap picks the count whose gap is closest: 10 st, gap 6 → 2 inc', async () => {
+  await openTab('panel-gap');
+  await setInput('gap-current', 10);
+  await setInput('gap-gap', 6);
+  await setDir('gap-dir', 'inc');
+  assert.equal(await text('gap-count'), '2');
+  assert.equal(await text('gap-pattern'), '[4 sc, inc] × 2');
+});

@@ -512,16 +512,41 @@
     return { small: small, nSmall: n - nLarge, nLarge: nLarge };
   }
 
+  // Lays the gaps out in working order with the bigger ones spread evenly
+  // around the round, then writes the shortest repeat that covers it,
+  // e.g. [4, 5, 5, 4, 5, 5] → "(4 sc, inc, [5 sc, inc] × 2) × 2".
   function formatPattern(split, word) {
+    var n = split.nSmall + split.nLarge;
+    var gaps = [];
+    for (var i = 0; i < n; i++) {
+      var bigs = Math.floor((i + 1) * split.nLarge / n) - Math.floor(i * split.nLarge / n);
+      gaps.push(split.small + bigs);
+    }
+
+    var period = n;
+    for (var p = 1; p < n; p++) {
+      if (n % p !== 0) continue;
+      var repeats = true;
+      for (var j = p; j < n && repeats; j++) repeats = gaps[j] === gaps[j - p];
+      if (repeats) { period = p; break; }
+    }
+
     function group(gap, reps) {
       return reps === 1
         ? gap + ' sc, ' + word
         : '[' + gap + ' sc, ' + word + '] × ' + reps;
     }
-    var parts = [];
-    if (split.nSmall > 0) parts.push(group(split.small, split.nSmall));
-    if (split.nLarge > 0) parts.push(group(split.small + 1, split.nLarge));
-    return parts.join(', ');
+    var runs = [];
+    for (var k = 0; k < period; k++) {
+      var last = runs[runs.length - 1];
+      if (last && last.gap === gaps[k]) last.reps++;
+      else runs.push({ gap: gaps[k], reps: 1 });
+    }
+
+    var times = n / period;
+    if (runs.length === 1) return group(runs[0].gap, runs[0].reps * times);
+    var unit = runs.map(function (r) { return group(r.gap, r.reps); }).join(', ');
+    return times === 1 ? unit : '(' + unit + ') × ' + times;
   }
 
   function gapRange(split) {

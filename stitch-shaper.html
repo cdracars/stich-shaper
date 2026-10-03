@@ -612,7 +612,11 @@
     var toggles = saved.toggles || {};
     INPUT_IDS.forEach(function (id) {
       var v = inputs[id];
-      if (typeof v === 'string' && /^\d+$/.test(v)) document.getElementById(id).value = v;
+      var input = document.getElementById(id);
+      if (typeof v === 'string' && /^\d+$/.test(v) &&
+          parseInt(v, 10) >= parseInt(input.min || '0', 10)) {
+        input.value = v;
+      }
     });
     TOGGLE_IDS.forEach(function (id) {
       var val = toggles[id];

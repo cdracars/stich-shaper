@@ -304,3 +304,13 @@ test('Page still works when the saved entries are garbage', async () => {
     await page.evaluate(() => localStorage.clear());
   }
 });
+
+test('A saved value below a field\'s minimum is not restored', async () => {
+  await page.evaluate(() => localStorage.setItem('stitch-shaper:v1', JSON.stringify({
+    inputs: { 'count-current': '30', 'count-n': '0' }, toggles: {}, panel: 'panel-count',
+  })));
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  const shown = await page.inputValue('#count-n');
+  assert.notEqual(shown, '0', 'shows 0 changes while calculating with 1');
+  assert.equal(await text('count-newtotal'), String(30 + parseInt(shown, 10)));
+});

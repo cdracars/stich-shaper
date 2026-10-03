@@ -350,3 +350,18 @@ test('A saved Random split that no longer adds up is replaced', async () => {
   assert.equal(chunks.length, 6);
   assert.equal(chunks.reduce((a, b) => a + b, 0) + 6, 30);
 });
+
+test('Random split stays put for a save made before splits were remembered', async () => {
+  // A save from the earlier version: entries but no randSegments.
+  await page.evaluate(() => localStorage.setItem('stitch-shaper:v1', JSON.stringify({
+    inputs: { 'rand-current': '30', 'rand-n': '6' }, toggles: { 'rand-dir': 'inc' },
+    panel: 'panel-random',
+  })));
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  const first = await randomChunksText();
+  // Just looking, no taps or typing, then coming back.
+  for (let i = 0; i < 5; i++) {
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    assert.equal(await randomChunksText(), first, `visit ${i + 2} gave a new split`);
+  }
+});

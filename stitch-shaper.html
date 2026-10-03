@@ -819,6 +819,9 @@
   renderCount();
   renderGap();
   renderRandom();
+  // Save straight away so a freshly rolled Random split sticks even if
+  // nothing is tapped before leaving.
+  saveEntries();
 })();
 </script>
 

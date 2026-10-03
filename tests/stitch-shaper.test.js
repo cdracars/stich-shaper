@@ -241,3 +241,66 @@ test('By Gap picks the count whose gap is closest: 10 st, gap 6 → 2 inc', asyn
   assert.equal(await text('gap-count'), '2');
   assert.equal(await text('gap-pattern'), '[4 sc, inc] × 2');
 });
+
+// ---------- remembering entries across visits ----------
+
+test('By Count entries and direction survive leaving and coming back', async () => {
+  await setInput('count-current', 40);
+  await setInput('count-n', 8);
+  await setDir('count-dir', 'dec');
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  assert.equal(await page.inputValue('#count-current'), '40');
+  assert.equal(await page.inputValue('#count-n'), '8');
+  assert.equal(await page.getAttribute('#count-dir button[data-val="dec"]', 'class'), 'on');
+  assert.equal(await text('count-pattern'), '[3 sc, dec] × 8');
+});
+
+test('By Gap and Random entries survive, and so does the open tab', async () => {
+  await openTab('panel-gap');
+  await setInput('gap-current', 50);
+  await setInput('gap-gap', 3);
+  await setDir('gap-dir', 'dec');
+  await openTab('panel-random');
+  await setInput('rand-current', 24);
+  await setInput('rand-n', 4);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  assert.equal(await page.isVisible('#panel-random'), true);
+  assert.equal(await page.inputValue('#rand-current'), '24');
+  assert.equal(await page.inputValue('#rand-n'), '4');
+  await openTab('panel-gap');
+  assert.equal(await page.inputValue('#gap-current'), '50');
+  assert.equal(await page.inputValue('#gap-gap'), '3');
+  assert.equal(await text('gap-pattern'), '[3 sc, dec] × 10');
+});
+
+test('Stepper changes are remembered too', async () => {
+  await page.click('button[data-target="count-n"][data-step="1"]');
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  assert.equal(await page.inputValue('#count-n'), '7');
+});
+
+test('Page still works when the browser blocks storage', async () => {
+  const blocked = await browser.newPage();
+  await blocked.route(/^https?:/, (route) => route.abort());
+  await blocked.addInitScript(() => {
+    const fail = () => { throw new Error('storage blocked'); };
+    Storage.prototype.getItem = fail;
+    Storage.prototype.setItem = fail;
+  });
+  await blocked.goto(PAGE_URL, { waitUntil: 'domcontentloaded' });
+  assert.equal((await blocked.textContent('#count-pattern')).trim(), '[4 sc, inc] × 6');
+  await blocked.fill('#count-n', '5');
+  assert.equal((await blocked.textContent('#count-newtotal')).trim(), '35');
+  await blocked.close();
+});
+
+test('Page still works when the saved entries are garbage', async () => {
+  for (const junk of ['not json', '{"panel":"x\\"]","toggles":{"count-dir":"in\\"c"},"inputs":5}', 'null']) {
+    await page.evaluate((v) => localStorage.setItem('stitch-shaper:v1', v), junk);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    assert.equal(await text('count-pattern'), '[4 sc, inc] × 6', `with saved value ${junk}`);
+    await setInput('count-n', 5);
+    assert.equal(await text('count-newtotal'), '35', `page stopped working with ${junk}`);
+    await page.evaluate(() => localStorage.clear());
+  }
+});

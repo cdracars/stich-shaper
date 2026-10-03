@@ -314,3 +314,54 @@ test('A saved value below a field\'s minimum is not restored', async () => {
   assert.notEqual(shown, '0', 'shows 0 changes while calculating with 1');
   assert.equal(await text('count-newtotal'), String(30 + parseInt(shown, 10)));
 });
+
+// ---------- Random split stays put between visits ----------
+
+async function randomChunksText() {
+  return page.$$eval('#rand-segments span', (els) => els.map((el) => el.textContent).join(' | '));
+}
+
+test('Random split is the same after leaving and coming back', async () => {
+  await openTab('panel-random');
+  await setInput('rand-current', 40);
+  await setInput('rand-n', 8);
+  const before = await randomChunksText();
+  for (let i = 0; i < 5; i++) {
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    assert.equal(await randomChunksText(), before, `reload ${i + 1} gave a new split`);
+  }
+});
+
+test('A reshuffled Random split is the one that comes back', async () => {
+  await openTab('panel-random');
+  await page.click('#reshuffle-btn');
+  const shuffled = await randomChunksText();
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  assert.equal(await randomChunksText(), shuffled);
+});
+
+test('A saved Random split that no longer adds up is replaced', async () => {
+  await page.evaluate(() => localStorage.setItem('stitch-shaper:v1', JSON.stringify({
+    inputs: { 'rand-current': '30', 'rand-n': '6' }, toggles: { 'rand-dir': 'inc' },
+    panel: 'panel-random', randSegments: [99, 1, 1, 1, 1, 1],
+  })));
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  const chunks = await randomSegments();
+  assert.equal(chunks.length, 6);
+  assert.equal(chunks.reduce((a, b) => a + b, 0) + 6, 30);
+});
+
+test('Random split stays put for a save made before splits were remembered', async () => {
+  // A save from the earlier version: entries but no randSegments.
+  await page.evaluate(() => localStorage.setItem('stitch-shaper:v1', JSON.stringify({
+    inputs: { 'rand-current': '30', 'rand-n': '6' }, toggles: { 'rand-dir': 'inc' },
+    panel: 'panel-random',
+  })));
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  const first = await randomChunksText();
+  // Just looking, no taps or typing, then coming back.
+  for (let i = 0; i < 5; i++) {
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    assert.equal(await randomChunksText(), first, `visit ${i + 2} gave a new split`);
+  }
+});

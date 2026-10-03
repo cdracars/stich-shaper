@@ -603,6 +603,10 @@
   var TOGGLE_IDS = ['count-dir', 'gap-dir', 'rand-dir'];
   var PANEL_IDS = ['panel-count', 'panel-gap', 'panel-random'];
 
+  // The Random split last shown, so coming back shows the same one.
+  var currentRandSegments = null;
+  var savedRandSegments = null;
+
   function restoreEntries() {
     var saved;
     try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch (e) { return; }
@@ -626,6 +630,7 @@
       });
     });
     if (PANEL_IDS.indexOf(saved.panel) !== -1) showPanel(saved.panel);
+    if (Array.isArray(saved.randSegments)) savedRandSegments = saved.randSegments;
   }
 
   function saveEntries() {
@@ -635,6 +640,7 @@
       state.toggles[id] = document.querySelector('#' + id + ' button.on').dataset.val;
     });
     state.panel = document.querySelector('nav.tabbar .tab.on').dataset.panel;
+    state.randSegments = currentRandSegments;
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* not saved */ }
   }
 
@@ -745,6 +751,19 @@
   });
   document.getElementById('reshuffle-btn').addEventListener('click', renderRandom);
 
+  // A restored split is only reused if it still adds up for the current
+  // numbers; otherwise a fresh one is rolled.
+  function fitsSplit(segments, total, parts) {
+    if (!Array.isArray(segments) || segments.length !== parts) return false;
+    var sum = 0;
+    for (var i = 0; i < segments.length; i++) {
+      var s = segments[i];
+      if (typeof s !== 'number' || s < 0 || Math.floor(s) !== s) return false;
+      sum += s;
+    }
+    return sum === total;
+  }
+
   function randomSplit(total, parts) {
     var weights = [];
     for (var i = 0; i < parts; i++) weights.push(1 + Math.floor(Math.random() * 10));
@@ -777,7 +796,11 @@
       return;
     }
 
-    var segments = randomSplit(regular, n);
+    var segments = fitsSplit(savedRandSegments, regular, n)
+      ? savedRandSegments
+      : randomSplit(regular, n);
+    savedRandSegments = null;
+    currentRandSegments = segments;
     var newTotal = dir === 'inc' ? current + n : current - n;
     var assigned = segments.reduce(function (a, b) { return a + b; }, 0);
 
@@ -796,6 +819,9 @@
   renderCount();
   renderGap();
   renderRandom();
+  // Save straight away so a freshly rolled Random split sticks even if
+  // nothing is tapped before leaving.
+  saveEntries();
 })();
 </script>
 

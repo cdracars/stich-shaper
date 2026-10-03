@@ -567,7 +567,7 @@
 
   function wireToggle(id, onChange) {
     var el = document.getElementById(id);
-    var state = { val: 'inc' };
+    var state = { val: el.querySelector('button.on').dataset.val };
     el.querySelectorAll('button').forEach(function (btn) {
       btn.addEventListener('click', function () {
         el.querySelectorAll('button').forEach(function (b) { b.classList.remove('on'); });
@@ -582,14 +582,67 @@
   wireStepper();
 
   // ---------- tab switching ----------
+  function showPanel(panelId) {
+    var tab = document.querySelector('nav.tabbar .tab[data-panel="' + panelId + '"]');
+    if (!tab) return;
+    document.querySelectorAll('nav.tabbar .tab').forEach(function (t) { t.classList.remove('on'); });
+    document.querySelectorAll('.panel').forEach(function (p) { p.classList.remove('active'); });
+    tab.classList.add('on');
+    document.getElementById(panelId).classList.add('active');
+  }
+
   document.querySelectorAll('nav.tabbar .tab').forEach(function (tab) {
-    tab.addEventListener('click', function () {
-      document.querySelectorAll('nav.tabbar .tab').forEach(function (t) { t.classList.remove('on'); });
-      document.querySelectorAll('.panel').forEach(function (p) { p.classList.remove('active'); });
-      tab.classList.add('on');
-      document.getElementById(tab.dataset.panel).classList.add('active');
-    });
+    tab.addEventListener('click', function () { showPanel(tab.dataset.panel); });
   });
+
+  // ---------- remember entries between visits ----------
+  // Kept in this browser only. Storage can be blocked (private mode,
+  // cleared site data), so every read and write is allowed to fail quietly.
+  var STORAGE_KEY = 'stitch-shaper:v1';
+  var INPUT_IDS = ['count-current', 'count-n', 'gap-current', 'gap-gap', 'rand-current', 'rand-n'];
+  var TOGGLE_IDS = ['count-dir', 'gap-dir', 'rand-dir'];
+  var PANEL_IDS = ['panel-count', 'panel-gap', 'panel-random'];
+
+  function restoreEntries() {
+    var saved;
+    try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch (e) { return; }
+    if (!saved || typeof saved !== 'object') return;
+    // Only restore values we recognise, so a corrupted save can't break the page.
+    var inputs = saved.inputs || {};
+    var toggles = saved.toggles || {};
+    INPUT_IDS.forEach(function (id) {
+      var v = inputs[id];
+      var input = document.getElementById(id);
+      if (typeof v === 'string' && /^\d+$/.test(v) &&
+          parseInt(v, 10) >= parseInt(input.min || '0', 10)) {
+        input.value = v;
+      }
+    });
+    TOGGLE_IDS.forEach(function (id) {
+      var val = toggles[id];
+      if (val !== 'inc' && val !== 'dec') return;
+      document.querySelectorAll('#' + id + ' button').forEach(function (b) {
+        b.classList.toggle('on', b.dataset.val === val);
+      });
+    });
+    if (PANEL_IDS.indexOf(saved.panel) !== -1) showPanel(saved.panel);
+  }
+
+  function saveEntries() {
+    var state = { inputs: {}, toggles: {} };
+    INPUT_IDS.forEach(function (id) { state.inputs[id] = document.getElementById(id).value; });
+    TOGGLE_IDS.forEach(function (id) {
+      state.toggles[id] = document.querySelector('#' + id + ' button.on').dataset.val;
+    });
+    state.panel = document.querySelector('nav.tabbar .tab.on').dataset.panel;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* not saved */ }
+  }
+
+  // Runs before the toggles are wired so they start from the restored choice.
+  restoreEntries();
+  // Document-level listeners run after the controls' own handlers.
+  document.addEventListener('input', saveEntries);
+  document.addEventListener('click', saveEntries);
 
   // ================= PANEL 1: BY COUNT =================
   var countDir = wireToggle('count-dir', renderCount);

@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const { chromium } = require('playwright');
 
-const PAGE_URL = 'file://' + path.resolve(__dirname, '..', 'stitch-shaper.html');
+const PAGE_URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
 
 let browser, page;
 

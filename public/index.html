@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Stitch Shaper – Crochet Increase &amp; Decrease Calculator | Dracars</title>
-<meta name="description" content="Plan crochet increases and decreases with clear, stitch-perfect shaping calculations.">
+<meta name="description" content="Calculate crochet increases and decreases by count or spacing, or make an uneven split. Get a repeatable stitch pattern and the new row or round total.">
 <link rel="canonical" href="https://stitch-shaper.dracars.com/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Stitch Shaper">
 <meta property="og:title" content="Stitch Shaper – Crochet Increase &amp; Decrease Calculator">
-<meta property="og:description" content="Plan crochet increases and decreases with clear, stitch-perfect shaping calculations.">
+<meta property="og:description" content="Calculate crochet increases and decreases by count or spacing, or make an uneven split. Get a repeatable stitch pattern and the new row or round total.">
 <meta property="og:url" content="https://stitch-shaper.dracars.com/">
 <meta property="og:image" content="https://stitch-shaper.dracars.com/social-preview.png">
 <meta property="og:image:width" content="1200">
@@ -18,7 +18,7 @@
 <meta property="og:image:alt" content="Stitch Shaper: a crochet row and round shaping calculator for increases and decreases.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Stitch Shaper – Crochet Increase &amp; Decrease Calculator">
-<meta name="twitter:description" content="Plan evenly spaced crochet increases and decreases with clear row and round calculations.">
+<meta name="twitter:description" content="Calculate crochet increases and decreases by count or spacing, or make an uneven split. Get a repeatable stitch pattern and the new row or round total.">
 <meta name="twitter:image" content="https://stitch-shaper.dracars.com/social-preview.png">
 <meta name="twitter:image:alt" content="Stitch Shaper: a crochet row and round shaping calculator for increases and decreases.">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -160,6 +160,26 @@
 
   .panel { display: none; animation: fade .18s ease; }
   .panel.active { display: block; }
+
+  .usage-notes {
+    margin: 22px 0 0;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+
+  .usage-notes h2 {
+    margin: 0 0 8px;
+    color: var(--text);
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .usage-notes p { margin: 0; }
+  .usage-notes p + p { margin-top: 10px; }
 
   @keyframes fade {
     from { opacity: 0; transform: translateY(4px); }
@@ -539,6 +559,12 @@
     </div>
 
     <p class="hint">Each chunk is followed by one increase (or decrease). Reshuffle as many times as you like — the math always lands exactly right.</p>
+  </section>
+
+  <section class="usage-notes" aria-labelledby="usage-notes-heading">
+    <h2 id="usage-notes-heading">How to read a crochet shaping pattern</h2>
+    <p>For example, <strong>[4 sc, inc] × 6</strong> means work 4 single crochet stitches, then make an increase; repeat that sequence six times. Starting with 30 stitches gives you 36 at the end of the round.</p>
+    <p>An increase works two stitches into one stitch, adding one to the total. A decrease such as sc2tog works two stitches together as one, subtracting one. If exact even spacing does not fit your stitch count, use the actual gap shown or choose Random for an intentionally uneven split.</p>
   </section>
 
 </main>
